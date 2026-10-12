@@ -1,0 +1,4 @@
+vm-qemu/build/
+*.qcow2
+__pycache__/
+*.pid
