@@ -1,0 +1,17 @@
+# Same application, same Ubuntu 24.04 userland, 2 vCPU / 2 GB, as in the container runs.
+# NOTE: verify the box name still exists before starting: https://portal.cloud.hashicorp.com/vagrant/discover
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-24.04"
+  config.vm.hostname = "cloud-project-vm"
+  config.vm.network "private_network", ip: "192.168.56.10"   # host-only network
+  config.vm.synced_folder ".", "/vagrant", disabled: true     # no shared-folder overhead
+  config.vm.provider "virtualbox" do |vb|
+    vb.name   = "cloud-project-vm"   # bench.py looks the VM up by this name
+    vb.cpus   = 2
+    vb.memory = 2048
+    vb.gui    = false
+  end
+  config.vm.provision "file", source: "../app/app.py",           destination: "/tmp/app.py"
+  config.vm.provision "file", source: "../app/requirements.txt", destination: "/tmp/requirements.txt"
+  config.vm.provision "shell", path: "provision.sh"
+end
