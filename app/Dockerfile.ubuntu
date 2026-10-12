@@ -1,0 +1,27 @@
+# Same Ubuntu version as the VM to reduce OS differences in the benchmark
+FROM ubuntu:24.04
+
+# Lets the installation run automatically
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python and venv; remove package lists to reduce image size
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-venv \
+ && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory inside the container
+WORKDIR /srv
+
+# Copy dependancies and install them inside a virtual (venv) environment
+COPY requirements.txt .
+RUN python3 -m venv /opt/venv \
+ && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+
+# Copy the Flask application
+COPY app.py .
+
+# Expose the port the application listens on
+EXPOSE 5000
+
+# Start flask using gunicorn with 2 workers, all listening on port 5000
+CMD ["/opt/venv/bin/gunicorn", "--workers", "2", "--bind", "0.0.0.0:5000", "app:app"]
