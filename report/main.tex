@@ -1,0 +1,298 @@
+\documentclass[conference,a4paper]{IEEEtran}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{cite}
+
+\lstset{
+	basicstyle=\ttfamily\footnotesize,
+	keywordstyle=\color{blue}\bfseries,
+	commentstyle=\color{gray}\itshape,
+	stringstyle=\color{red},
+	numbers=left,
+	numberstyle=\tiny\color{gray},
+	numbersep=5pt,
+	frame=single,
+	breaklines=true,
+	captionpos=b,
+	tabsize=4
+}
+
+% ---- helpers (remove every \todo before submission: checklist item 13) ----
+\newcommand{\todo}[1]{{\color{red}[TODO: #1]}}
+\newcommand{\optinput}[1]{\IfFileExists{#1}{\resizebox{\columnwidth}{!}{\input{#1}}}{\todo{run bench/analyze.py to generate \detokenize{#1}}}}
+\newcommand{\optfig}[2]{\IfFileExists{#1}{\includegraphics[width=#2]{#1}}{\rule{0.3\columnwidth}{2cm}~\todo{missing \detokenize{#1}}}}
+
+\begin{document}
+
+% TODO: Fill in original information once the report is complete
+\title{Virtual Machines vs. Containers: A Performance Benchmark}
+
+\author{
+    \IEEEauthorblockN{Independent Research}
+    \IEEEauthorblockA{
+        Systems Engineering and Performance Evaluation
+    }
+}
+
+\maketitle
+
+\begin{abstract}
+% 150-250 words, no symbols/special characters/math. Write this LAST, with real numbers.
+\todo{Sentence 1: the question. Sentence 2: topic 2, part A, local environment, no cloud account. Sentence 3: what was built (one Flask API run in a QEMU/KVM virtual machine and in a Docker container, both inside WSL2 with equal CPU and memory budgets). Sentence 4: what was measured (time to ready, memory, disk size, throughput, latency; three repetitions). Sentence 5-6: key results with numbers. Sentence 7: cost was zero USD. Sentence 8: main conclusion and recommendation. Spell out units and write percent as the word percent.}
+\end{abstract}
+
+\begin{IEEEkeywords}
+cloud computing, virtualization, containers, Docker, performance evaluation
+\end{IEEEkeywords}
+
+\section{Introduction}
+\label{sec:introduction}
+% DRAFT. Rewrite in your own words: the guidelines require that motivation and question are yours.
+Organizations running web services in the cloud must decide whether to package an application as a virtual machine (VM) image or as a container image. Both isolate the application, but a VM carries its own operating-system kernel while a container shares the host kernel. In practice this should affect how quickly new capacity becomes available, how much memory and disk each instance consumes, and possibly request latency. These properties matter for autoscaling, density, and cost.
+
+\textbf{Question.} On one host, with the same application, the same Ubuntu 24.04 user space, and the same budget of two CPU cores and 2~GB of memory, (a) how much faster does a Docker container become ready than a QEMU/KVM VM, (b) how much memory and disk does each use, and (c) do steady-state throughput and response time differ?
+
+\textbf{Approach.} We run one small Flask API two ways: in a QEMU/KVM VM and in a Docker container built on the same Ubuntu 24.04 user space. We measure each alternative at least three times with an automated harness. Section~\ref{sec:related_work} gives background, Section~\ref{sec:design} the design, Section~\ref{sec:methodology} the method, Section~\ref{sec:results} the results, and Sections~\ref{sec:discussion} and~\ref{sec:conclusion} the discussion and conclusion.
+
+\section{Background and Related Work}
+\label{sec:related_work}
+% DRAFT. Read every cited source before keeping its sentence. Write the synthesis yourself.
+\textbf{Service models and virtualization.} The NIST definition~\cite{b1} and the course textbook~\cite{b2} describe virtual machines as the basis of infrastructure as a service. A hypervisor presents virtual hardware to a guest operating system, which boots its own kernel. With KVM the Linux kernel itself acts as the hypervisor and runs guest code directly on the CPU with hardware support, while QEMU emulates the virtual devices in user space. On Windows, WSL2 itself runs inside a lightweight virtual machine, so a KVM guest started in WSL2 is a nested virtual machine.
+
+\textbf{Containers.} On Linux, containers are ordinary processes isolated with kernel namespaces and limited with control groups (cgroups); all containers share the host kernel. Docker exposes these limits through options such as \texttt{--memory} and \texttt{--cpuset-cpus}~\cite{b4}, which we use to give containers the same budget as the VM.
+
+\textbf{Related work.} Felter et al.~\cite{b3} compared native Linux, KVM, and Docker for CPU, memory, network, and disk workloads and reported low overhead for both virtualization styles, with network address translation as a notable cost. \todo{After reading the paper: state in one or two sentences what it did NOT measure that you measure (for example, time to become ready), and how your setup differs (a Flask API instead of Redis and MySQL, WSL2 and therefore a nested guest).}
+
+\textbf{Tools.} We run the VM with QEMU/KVM~\cite{b5} and generate load with ApacheBench (\texttt{ab})~\cite{b6}, which sends a fixed number of requests with a fixed number of concurrent connections.
+
+\section{System Design / Case Description}
+\label{sec:design}
+
+\subsection{Architecture}
+Fig.~\ref{fig:architecture} shows the setup. Everything runs inside one WSL2 Linux instance. The load generator (\texttt{ab}) is pinned to cores that the system under test does not use. It sends HTTP requests either to the VM over a TAP network (192.168.100.2:5000) or to the container on Docker's bridge network (its bridge IP, port 5000); neither path uses address translation. Only one target runs at a time. In every case the same gunicorn server with two workers serves the same Flask application with three endpoints.
+
+\begin{figure}[htbp]
+	\centerline{\rule{0.35\textwidth}{3cm}}
+	\caption{\todo{Replace with YOUR draw.io diagram: host machine box; Windows host, Hyper-V, the WSL2 virtual machine with its Linux kernel; inside it ab (cores 4-5), a QEMU/KVM guest (2 vCPU, 2 GB, own Ubuntu 24.04 kernel, systemd, gunicorn, Flask) on a TAP network, and Docker Engine with one container (ubuntu:24.04 image, sharing the WSL2 kernel, docker bridge); arrows for requests and for the measurement harness.}}
+	\label{fig:architecture}
+\end{figure}
+
+\subsection{Alternatives Compared}
+No cloud provider is used. Topic~2 runs locally, so the experiment costs nothing and needs no account. We compare two alternatives: \textbf{VM} (QEMU/KVM, Ubuntu 24.04 guest) and \textbf{Ctr-Ubuntu} (container built on \texttt{ubuntu:24.04}, the same user space as the VM), so the difference isolates the cost of virtualization itself rather than the base image.
+
+\subsection{Requirements and Responsibilities}
+Requirements: identical application behavior; equal resource budget (2 CPUs, 2~GB); repeatable measurements; no personal data (the API handles only synthetic requests, so KVKK does not apply to this experiment). Table~\ref{tab:resp} lists who is responsible for what, assuming the same split in a real cloud deployment.
+
+\begin{table}[htbp]
+	\caption{Shared Responsibility: VM versus Container (on a Cloud Provider's Infrastructure)}
+	\begin{center}
+		\footnotesize
+		\begin{tabular}{|p{0.30\columnwidth}|p{0.27\columnwidth}|p{0.27\columnwidth}|}
+			\hline
+			\textbf{Layer} & \textbf{VM} & \textbf{Container} \\
+			\hline
+			Physical hardware, hypervisor & Provider & Provider \\
+			\hline
+			Kernel and its patches & Customer (guest) & Host owner (shared) \\
+			\hline
+			User space and packages & Customer & Customer (image) \\
+			\hline
+			Isolation boundary & Hypervisor & Kernel namespaces \\
+			\hline
+			Application and data & Customer & Customer \\
+			\hline
+		\end{tabular}
+		\label{tab:resp}
+	\end{center}
+\end{table}
+
+\section{Methodology}
+\label{sec:methodology}
+\subsection{Environment}
+\begin{table}[htbp]
+	\caption{Experimental Environment}
+	\begin{center}
+		\footnotesize
+		\begin{tabular}{|p{0.28\columnwidth}|p{0.62\columnwidth}|}
+			\hline
+			\textbf{Property} & \textbf{Value} \\
+			\hline
+			Host & \todo{CPU model, cores, RAM; Windows version (winver)} \\
+			\hline
+			WSL and Linux & \todo{wsl --version; distro, kernel (uname -r); WSL memory/CPU limits} \\
+			\hline
+			Hypervisor & QEMU \todo{version} with KVM, nested in WSL2 \\
+			\hline
+			Container engine & Docker \todo{version}, cgroup \todo{v1/v2} \\
+			\hline
+			Guest / image OS & Ubuntu 24.04 LTS \\
+			\hline
+			Application & Flask \todo{version}, gunicorn \todo{version}, 2 workers, 3 endpoints \\
+			\hline
+			Resource budget & 2 CPUs pinned to WSL2 logical CPUs 0--1, 2~GB \\
+			\hline
+			Load test tool & ApacheBench \todo{version}; 50 concurrent connections; 2 workloads \\
+			\hline
+			Load per run & 20000 requests per workload after a 500-request warm-up \\
+			\hline
+			Repetitions & 3 per configuration (3 for startup) \\
+			\hline
+		\end{tabular}
+		\label{tab:environment}
+	\end{center}
+\end{table}
+
+\subsection{Measurements}
+\textbf{Time to ready (s):} wall-clock time from immediately before the start command (\texttt{qemu-system-x86\_64} or \texttt{docker run}) until the first HTTP 200 from \texttt{/health}, polled every 20~ms. One discarded warm-up round precedes three measured rounds in random order. \textbf{Memory (MB):} sampled 20~s after readiness and during load. For the VM we report the host-side resident size of the QEMU process and the memory used inside the guest; for containers, the cgroup memory counter shown by \texttt{docker stats}. \textbf{Disk (MB):} space allocated by the VM's qcow2 image file and the image size reported by Docker for containers. \textbf{Throughput (req/s) and latency (ms):} ApacheBench with 50 concurrent connections and 20000 requests per measurement, on two workloads: \texttt{/compute} (CPU-bound, 5000 chained hashes) and \texttt{/} (a tiny response, dominated by the network and server stack). Keep-alive is off, so each request opens a new connection. \textbf{Cost (USD):} all resources are local, so the cost is zero apart from electricity, which we do not measure.
+
+\textbf{Expectations (written before measuring).} \todo{Commit these three before your first run: H1 a container is ready in seconds while a VM needs tens of seconds because it boots a kernel and init system; H2 container memory is close to the application's own use while a VM adds a guest-OS baseline; H3 CPU-bound throughput is close to parity, and any gap comes from the network path and virtual devices. Adjust wording and add your own reasoning.}
+
+\textbf{Controls.} Equal CPU and memory budgets; same cores for every target; the load tool on separate cores; a fresh copy-on-write VM disk and a fresh container for every start; one target at a time; randomized order; 15~s cooldown; background update services disabled in the VM. \todo{Describe anything else you did, for example the CPU governor.}
+
+\subsection{Reproducibility and Verification}
+All code is in the repository (Appendix~\ref{app:code}); steps are in its README: build the Docker image, build the VM image (\texttt{vm-qemu/create\_vm.sh}), then \texttt{bench/run\_quick.sh}. Raw \texttt{ab} outputs and CSV files are included. AI-assisted code was read, run, and understood by the author \todo{make this statement true before keeping it}.
+
+\section{Results}
+\label{sec:results}
+\subsection{Performance Results}
+\begin{table}[htbp]
+	\caption{Time to Ready and Idle Memory (mean $\pm$ s.d.)}
+	\begin{center}
+		\footnotesize
+		\optinput{tables/tab_startup.tex}
+		\label{tab:startup}
+	\end{center}
+\end{table}
+
+\begin{figure}[htbp]
+	\centerline{\optfig{figures/fig_startup.pdf}{0.8\columnwidth}}
+	\caption{Time to first successful HTTP response after the start command (three rounds, error bars: one standard deviation, logarithmic axis).}
+	\label{fig:startup}
+\end{figure}
+
+\begin{table}[htbp]
+	\caption{Disk Footprint}
+	\begin{center}
+		\footnotesize
+		\optinput{tables/tab_size.tex}
+		\label{tab:size}
+	\end{center}
+\end{table}
+
+\begin{table}[htbp]
+	\caption{CPU-Bound Workload (\texttt{/compute}, 50 Connections, mean $\pm$ s.d. of 3 Runs)}
+	\begin{center}
+		\footnotesize
+		\optinput{tables/tab_sat_compute.tex}
+		\label{tab:sat_compute}
+	\end{center}
+\end{table}
+
+\begin{table}[htbp]
+	\caption{Network-Bound Workload (\texttt{/}, 50 Connections, mean $\pm$ s.d. of 3 Runs)}
+	\begin{center}
+		\footnotesize
+		\optinput{tables/tab_sat_index.tex}
+		\label{tab:sat_index}
+	\end{center}
+\end{table}
+
+\begin{figure}[htbp]
+	\centerline{\optfig{figures/fig_load.pdf}{0.9\columnwidth}}
+	\caption{Maximum throughput for the two workloads (50 concurrent connections, 20000 requests per run). Error bars: one standard deviation over three runs.}
+	\label{fig:load}
+\end{figure}
+
+\subsection{Cost Results}
+Actual total cost of the experiments: USD~0. \todo{After running bench/cleanup.sh, confirm that all containers, images, and the VM were deleted and paste the empty leftover check as evidence (screenshot in repository).}
+
+\subsection{Comparison of Alternatives}
+\todo{Write 1-2 paragraphs in your own words: which alternative wins on which criterion, with numbers from the tables, and any trade-off. Refer to Fig.~\ref{fig:startup} and Fig.~\ref{fig:load}.}
+
+\section{Discussion}
+\label{sec:discussion}
+\todo{Write this section yourself, grounded in your numbers. Questions to answer:}
+\begin{itemize}
+	\item Which alternative is best for this case, and why? Did the VM's time to ready come mostly from guest boot rather than from the start command? (Compare the launch and startup columns in startup.csv.)
+	\item Why is the VM's disk footprint so much larger than the container image's? What does each one include (kernel, init system, packages)?
+	\item How might the different network paths (TAP network versus Docker bridge, and the different request paths of the two workloads) have influenced latency? Relate this to the network address translation cost reported in~\cite{b3}.
+	\item What would change in a cloud setting, where containers usually run inside VMs and the hypervisor is not QEMU running nested inside WSL2?
+	\item Security and shared responsibility: what does sharing the kernel mean for isolation and patching (Table~\ref{tab:resp})?
+	\item Did running inside WSL2 (nested virtualization, a hidden extra layer under both targets) affect the VM more than the container? Limitations: one host, one hypervisor, three repetitions, short tests, no disk I/O test, CPU pinning that WSL2 may not map to physical cores, application-specific results.
+	\item Any surprising findings? Did a result contradict your expectations H1--H3?
+	\item Legal and ethical points: only synthetic data was used.
+\end{itemize}
+
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+\todo{Key findings with numbers (1-2 sentences); recommendation for an organization; what you would change with more time; 2-3 concrete future directions (for example a container running inside the VM, disk I/O workloads, a native Linux host or VirtualBox instead of nested WSL2, more repetitions).}
+
+\section*{AI Tool Use and Originality Declaration}
+\label{sec:ai_declaration}
+% Pre-filled to match what an AI assistant actually produced for this kit. Change levels and text to match what YOU did.
+AI-assisted tools were used for support in the following stages. The author ran all experiments, reviewed and tested all code and configuration, checked every reference and price against the original sources, and wrote the interpretation, discussion, and conclusion. The author accepts full responsibility for the accuracy, originality, reproducibility, and integrity of the submitted work. \todo{Delete or adjust any sentence that is not true.}
+
+\begin{table}[htbp]
+	\caption{AI Use Disclosure Summary}
+	\label{tab:ai_use}
+	\centering
+	\footnotesize
+	\begin{tabular}{|p{0.30\linewidth}|c|p{0.44\linewidth}|}
+		\hline
+		\textbf{Project Stage} & \textbf{Level} & \textbf{Brief Description} \\
+		\hline
+		Topic and question & 3 & Topic chosen from the course list; the research question and metrics were drafted with an AI assistant and then reviewed. \\
+		\hline
+		Literature and documentation search & 2 & The assistant suggested candidate sources; the author read and verified each. \\
+		\hline
+		Design, deployment, and configuration & 4 & The assistant wrote the Dockerfiles, Vagrant configuration, and benchmark scripts; the author ran, reviewed, and adapted them. \\
+		\hline
+		Measurement, cost analysis, and modeling & 4 & The assistant wrote the measurement and analysis code; all measurements were made by the author. \\
+		\hline
+		Writing, editing, and LaTeX formatting & 3 & The assistant drafted the report skeleton and early sections; the author rewrote them. \\
+		\hline
+		Interpretation, discussion, and conclusion & 1 & Written by the author. \\
+		\hline
+	\end{tabular}
+\end{table}
+
+\begin{thebibliography}{00}
+
+\bibitem{b1} P.~Mell and T.~Grance, ``The NIST definition of cloud computing,'' National Institute of Standards and Technology, Gaithersburg, MD, USA, NIST Special Publication 800-145, 2011.
+
+\bibitem{b2} J.~West, \textit{CompTIA Cloud+ Guide to Cloud Computing}, 2nd~ed. Boston, MA, USA: Cengage, 2024.
+
+\bibitem{b3} W.~Felter, A.~Ferreira, R.~Rajamony, and J.~Rubio, ``An updated performance comparison of virtual machines and Linux containers,'' in \textit{Proc. IEEE Int. Symp. Performance Analysis of Systems and Software (ISPASS)}, 2015, pp.~171--172.
+
+\bibitem{b4} Docker Inc., ``Resource constraints,'' Docker Docs. [Online]. Available: \url{https://docs.docker.com/engine/containers/resource_constraints/}. [Accessed: \todo{Day Month Year}].
+
+\bibitem{b5} QEMU Project, ``System emulation,'' QEMU documentation. [Online]. Available: \url{https://www.qemu.org/docs/master/system/index.html}. [Accessed: \todo{Day Month Year}].
+
+\bibitem{b6} Apache Software Foundation, ``ab - Apache HTTP server benchmarking tool,'' Apache HTTP Server Documentation. [Online]. Available: \url{https://httpd.apache.org/docs/current/programs/ab.html}. [Accessed: \todo{Day Month Year}]. \todo{Open the page and confirm the link and the options you cite before keeping it.}
+
+\end{thebibliography}
+
+\appendix
+
+\section{Code Repository}
+\label{app:code}
+
+Scripts and configuration files are available at: \todo{\url{https://github.com/melovii/virtualization-benchmark}}
+
+Key command used for the repeated load runs (full harness in the repository):
+
+\begin{lstlisting}[language=bash, caption={Quick profile: all measurements}, label={lst:runs}]
+bash bench/run_quick.sh
+\end{lstlisting}
+
+No access keys, passwords, or private keys are included in the report or repository.
+
+\end{document}
