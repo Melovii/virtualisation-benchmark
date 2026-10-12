@@ -1,0 +1,53 @@
+This is ApacheBench, Version 2.3 <$Revision: 1879490 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking 172.17.0.2 (be patient)
+
+
+Server Software:        gunicorn
+Server Hostname:        172.17.0.2
+Server Port:            5000
+
+Document Path:          /compute?n=5000
+Document Length:        39 bytes
+
+Concurrency Level:      50
+Time taken for tests:   20.396 seconds
+Complete requests:      20000
+Failed requests:        0
+Total transferred:      3680000 bytes
+HTML transferred:       780000 bytes
+Requests per second:    980.61 [#/sec] (mean)
+Time per request:       50.989 [ms] (mean)
+Time per request:       1.020 [ms] (mean, across all concurrent requests)
+Transfer rate:          176.20 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.1      0       5
+Processing:     2   51  26.6     46     543
+Waiting:        2   51  26.6     46     543
+Total:          4   51  26.6     46     543
+
+Percentage of the requests served within a certain time (ms)
+  50%     46
+  66%     48
+  75%     51
+  80%     53
+  90%     59
+  95%     70
+  98%     85
+  99%     99
+ 100%    543 (longest request)
+Completed 2000 requests
+Completed 4000 requests
+Completed 6000 requests
+Completed 8000 requests
+Completed 10000 requests
+Completed 12000 requests
+Completed 14000 requests
+Completed 16000 requests
+Completed 18000 requests
+Completed 20000 requests
+Finished 20000 requests

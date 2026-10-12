@@ -53,17 +53,30 @@ bash bench/cleanup.sh          # screenshot its empty "leftovers" output as cost
 
 | Component                                    | Status                                                                |
 | -------------------------------------------- | --------------------------------------------------------------------- |
-| Flask app + Dockerfiles                      | TODO: confirm built and run on my machine                             |
-| Benchmark harness / analysis (`bench/`)    | TODO: confirm full run completed                                      |
-| QEMU/KVM VM image (`vm-qemu/create_vm.sh`) | TODO: untested, debug as needed                                       |
-| TAP network (`vm-qemu/net_up.sh`)          | TODO: untested                                                        |
-| Docker bridge-IP access                      | TODO: untested                                                        |
-| VirtualBox/Vagrant alternative (`vm/`)     | TODO: untested                                                        |
-| Report (`report/main.tex`)                 | TODO: replace placeholders (`\todo{}`), diagram, results discussion |
+| Flask app + Dockerfiles                      | Done: `ubuntu:24.04` image built and benchmarked                      |
+| Benchmark harness / analysis (`bench/`)      | Done: full `run_quick.sh` run completed (2026-10-12)                  |
+| QEMU/KVM VM image (`vm-qemu/create_vm.sh`)   | Done: built and benchmarked                                           |
+| TAP network (`vm-qemu/net_up.sh`)            | Done: VM reached at 192.168.100.2:5000                                |
+| Docker bridge-IP access                      | Done: container reached on its bridge IP                              |
+| VirtualBox/Vagrant alternative (`vm/`)       | Not used or tested; QEMU/KVM is the driver behind all results         |
+| Report (`report/main.tex`)                   | In progress: placeholders (`\todo{}`), diagram, discussion remain     |
 
-**Results:** TODO: add measured numbers once a full run finishes.
+**Results** (mean over 3 measured runs; 50 concurrent connections, 20,000 requests per run, 0 failed requests; VM = 2 vCPUs / 2 GiB; raw data in `results/`):
 
-**Known issues / things I had to fix:** TODO
+| Metric                      | VM (QEMU/KVM) | Container (ubuntu:24.04) |
+| --------------------------- | ------------- | ------------------------ |
+| Time to ready               | 7.34 s        | 0.77 s                   |
+| Idle memory (host view)     | 522 MB        | 42 MB                    |
+| Disk size                   | 2334 MB       | 212 MB                   |
+| `/compute` throughput       | 724 req/s     | 961 req/s                |
+| `/compute` median / p95     | 60.7 / 98 ms  | 48.0 / 68.7 ms           |
+| `/` throughput              | 3579 req/s    | 7481 req/s               |
+| `/` median / p95            | 13.7 / 20.7 ms | 6.3 / 10.3 ms           |
+
+**Known issues / things I had to fix:**
+
+- `vm-qemu/build_seed.py` originally emitted cloud-init YAML with tab indentation, which is invalid; fixed to spaces. The benchmarked VM image was built from the fixed version.
+- `bench/load_test.js` (k6) was not used; all load tests used ApacheBench (k6 is not installed).
 
 ## Known methodological limits (state them in the report)
 

@@ -2,3 +2,16 @@ vm-qemu/build/
 *.qcow2
 __pycache__/
 *.pid
+*.bak
+0SUBMISSION/
+# LaTeX build files
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+report/main.pdf
