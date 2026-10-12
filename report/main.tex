@@ -80,9 +80,11 @@ Organizations running web services in the cloud must decide whether to package a
 Fig.~\ref{fig:architecture} shows the setup. Everything runs inside one WSL2 Linux instance. The load generator (\texttt{ab}) is pinned to cores that the system under test does not use. It sends HTTP requests either to the VM over a TAP network (192.168.100.2:5000) or to the container on Docker's bridge network (its bridge IP, port 5000); neither path uses address translation. Only one target runs at a time. In every case the same gunicorn server with two workers serves the same Flask application with three endpoints.
 
 \begin{figure}[htbp]
-	\centerline{\rule{0.35\textwidth}{3cm}}
-	\caption{\todo{Replace with YOUR draw.io diagram: host machine box; Windows host, Hyper-V, the WSL2 virtual machine with its Linux kernel; inside it ab (cores 4-5), a QEMU/KVM guest (2 vCPU, 2 GB, own Ubuntu 24.04 kernel, systemd, gunicorn, Flask) on a TAP network, and Docker Engine with one container (ubuntu:24.04 image, sharing the WSL2 kernel, docker bridge); arrows for requests and for the measurement harness.}}
-	\label{fig:architecture}
+    \centering
+    \includegraphics[width=\linewidth]{figures/architecture.pdf}
+    \caption{Architecture Diagram for the Docker container
+    and QEMU/KVM virtual machine.}
+    \label{fig:architecture}
 \end{figure}
 
 \subsection{Alternatives Compared}
