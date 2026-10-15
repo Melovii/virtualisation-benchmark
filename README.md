@@ -1,6 +1,6 @@
 # Virtual Machine vs Container
 
-**Question:** If we were to run the same app, under the same Ubuntu 24.04 userland and same budget (2 CPUs, 2 GB): how faster would a container setup compared to a VM, how much memory and disk does each use, and how different are throughput and latency?
+**Question:** If we were to run the same app, under the same Ubuntu 24.04 userland and same budget (2 CPUs, 2 GB): how much faster does a container become ready than a VM, how much memory and disk does each use, and how different are throughput and latency?
 
 **Alternatives:**
 
@@ -59,7 +59,7 @@ bash bench/cleanup.sh          # screenshot its empty "leftovers" output as cost
 | TAP network (`vm-qemu/net_up.sh`)            | Done: VM reached at 192.168.100.2:5000                                |
 | Docker bridge-IP access                      | Done: container reached on its bridge IP                              |
 | VirtualBox/Vagrant alternative (`vm/`)       | Not used or tested; QEMU/KVM is the driver behind all results         |
-| Report (`report/main.tex`)                   | In progress: placeholders (`\todo{}`), diagram, discussion remain     |
+| Report (`report/main.tex`)                   | Written; being finalised (LaTeX source + PDF)                         |
 
 **Results** (mean over 3 measured runs; 50 concurrent connections, 20,000 requests per run, 0 failed requests; VM = 2 vCPUs / 2 GiB; raw data in `results/`):
 
@@ -78,7 +78,7 @@ bash bench/cleanup.sh          # screenshot its empty "leftovers" output as cost
 - `vm-qemu/build_seed.py` originally emitted cloud-init YAML with tab indentation, which is invalid; fixed to spaces. The benchmarked VM image was built from the fixed version.
 - `bench/load_test.js` (k6) was not used; all load tests used ApacheBench (k6 is not installed).
 
-## Known methodological limits (state them in the report)
+## Known methodological limits
 
 - Nested virtualization under WSL2; the CPU pinning may not map to physical cores under WSL2.
 - Network paths differ: VM on a TAP device, container on the docker bridge. Neither uses NAT, but they are not identical.
