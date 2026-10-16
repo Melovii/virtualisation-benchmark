@@ -43,7 +43,7 @@ def write_table(path, header, rows):
 	path.write_text("\n".join(lines) + "\n")
 
 
-def bar(ax, g, ylabel, log=False, title=None):
+def bar(ax, g, ylabel, log=False, title=None, annotate=False):
 	xs = range(len(g))
 	ax.bar(xs, g["mean"], yerr=g["std"], capsize=4)
 	ax.set_xticks(list(xs))
@@ -55,6 +55,13 @@ def bar(ax, g, ylabel, log=False, title=None):
 		ax.yaxis.set_minor_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
 		ax.tick_params(axis="y", which="both", labelsize=6)
 		ax.grid(axis="y", which="minor", alpha=0.15)
+	else:
+		ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+	if annotate:
+		for x, m, sd in zip(xs, g["mean"], g["std"]):
+			ax.annotate(f"{m:.2f}", (x, m + sd), xytext=(0, 3), textcoords="offset points",
+						ha="center", va="bottom", fontsize=7)
+		ax.margins(y=0.12)
 	if title:
 		ax.set_title(title, fontsize=9)
 	ax.grid(axis="y", alpha=0.3)
@@ -80,7 +87,7 @@ def main():
 		write_table(out / "tables" / "tab_startup.tex",
 					["Target", "Ready (s)", "Host mem. (MB)", "Guest mem. (MB)", "n"], rows)
 		fig, ax = plt.subplots(figsize=(3.4, 2.4))
-		bar(ax, g_t, "First HTTP 200 (s, log)", log=True)
+		bar(ax, g_t, "Time to first HTTP 200 (s)", annotate=True)
 		fig.tight_layout()
 		fig.savefig(out / "figures" / "fig_startup.pdf")
 		plt.close(fig)
