@@ -9,6 +9,7 @@ import argparse
 import pathlib
 
 import matplotlib
+import matplotlib.ticker
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -50,6 +51,10 @@ def bar(ax, g, ylabel, log=False, title=None):
 	ax.set_ylabel(ylabel)
 	if log:
 		ax.set_yscale("log")
+		ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+		ax.yaxis.set_minor_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+		ax.tick_params(axis="y", which="both", labelsize=6)
+		ax.grid(axis="y", which="minor", alpha=0.15)
 	if title:
 		ax.set_title(title, fontsize=9)
 	ax.grid(axis="y", alpha=0.3)
@@ -75,7 +80,7 @@ def main():
 		write_table(out / "tables" / "tab_startup.tex",
 					["Target", "Ready (s)", "Host mem. (MB)", "Guest mem. (MB)", "n"], rows)
 		fig, ax = plt.subplots(figsize=(3.4, 2.4))
-		bar(ax, g_t, "Time to first HTTP 200 (s, log scale)", log=True)
+		bar(ax, g_t, "First HTTP 200 (s, log)", log=True)
 		fig.tight_layout()
 		fig.savefig(out / "figures" / "fig_startup.pdf")
 		plt.close(fig)
